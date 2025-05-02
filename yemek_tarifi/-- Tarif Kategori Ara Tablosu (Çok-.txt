@@ -1,0 +1,356 @@
+-- Tarif Kategori Ara Tablosu (Çok-Çok İlişki)
+CREATE TABLE tarif_kategori (
+    tarif_id INTEGER REFERENCES tarifler(id) ON DELETE CASCADE,
+    kategori_id INTEGER REFERENCES kategoriler(id) ON DELETE CASCADE,
+    PRIMARY KEY (tarif_id, kategori_id)
+);
+
+-- Kategoriler Tablosu
+CREATE TABLE kategoriler (
+    id SERIAL PRIMARY KEY,
+    ad VARCHAR(50) UNIQUE NOT NULL
+);
+
+-- Favoriler Tablosu (Çok-Çok İlişki)
+CREATE TABLE favoriler (
+    kullanici_id INTEGER REFERENCES kullanicilar(id) ON DELETE CASCADE,
+    tarif_id INTEGER REFERENCES tarifler(id) ON DELETE CASCADE,
+    eklenme_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (kullanici_id, tarif_id)
+);
+
+-- Yorumlar Tablosu
+CREATE TABLE yorumlar (
+    id SERIAL PRIMARY KEY,
+    kullanici_id INTEGER REFERENCES kullanicilar(id) ON DELETE CASCADE,
+    tarif_id INTEGER REFERENCES tarifler(id) ON DELETE CASCADE,
+    yorum_metni TEXT NOT NULL,
+    puan INTEGER CHECK (puan >= 1 AND puan <= 5), -- 1'den 5'e puanlama
+    yorum_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tarifler Tablosu
+CREATE TABLE tarifler (
+    id SERIAL PRIMARY KEY,
+    kullanici_id INTEGER REFERENCES kullanicilar(id) ON DELETE CASCADE,
+    baslik VARCHAR(255) NOT NULL,
+    malzemeler TEXT NOT NULL,
+    hazirlik_suresi INTEGER, -- Dakika cinsinden
+    pisirme_suresi INTEGER, -- Dakika cinsinden
+    yapilis_asamalari TEXT NOT NULL,
+    resim_url VARCHAR(255),
+    eklenme_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Tarifler Tablosu
+CREATE TABLE tarifler (
+    id SERIAL PRIMARY KEY,
+    kullanici_id INTEGER REFERENCES kullanicilar(id) ON DELETE CASCADE,
+    baslik VARCHAR(255) NOT NULL,
+    malzemeler TEXT NOT NULL,
+    hazirlik_suresi INTEGER, -- Dakika cinsinden
+    pisirme_suresi INTEGER, -- Dakika cinsinden
+    yapilis_asamalari TEXT NOT NULL,
+    resim_url VARCHAR(255),
+    eklenme_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Kullanıcılar Tablosu
+CREATE TABLE kullanicilar (
+    id SERIAL PRIMARY KEY,
+    kullanici_adi VARCHAR(50) UNIQUE NOT NULL,
+    eposta VARCHAR(100) UNIQUE NOT NULL,
+    sifre VARCHAR(255) NOT NULL, -- Güvenlik için hashlenmiş şifre saklanmalı
+    profil_resmi VARCHAR(255),
+    kayit_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+profil
+<?php
+session_start();
+
+// Kullanıcı giriş yapmamışsa giriş sayfasına yönlendir
+if (!isset($_SESSION['kullanici_id'])) {
+    header("Location: giris.php");
+    exit();
+}
+
+$kullanici_id = $_SESSION['kullanici_id'];
+$kullanici_adi = $_SESSION['kullanici_adi'];
+// İlerleyen aşamalarda veritabanından kullanıcı bilgilerini çekebiliriz
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profilim</title>
+</head>
+<body>
+    <h1>Profilim</h1>
+    <p>Kullanıcı ID: <?php echo $kullanici_id; ?></p>
+    <p>Kullanıcı Adı: <?php echo $kullanici_adi; ?></p>
+    <h2>Favori Tariflerim</h2>
+    <p><a href="anasayfa.php">Anasayfaya Dön</a></p>
+    <p><a href="cikis.php">Çıkış Yap</a></p>
+</body>
+</html>
+kayıt
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kullanıcı Kayıt</title>
+</head>
+<body>
+    <h1>Kullanıcı Kayıt</h1>
+    <form method="POST" action="kayit_isle.php">
+        <div>
+            <label for="kullanici_adi">Kullanıcı Adı:</label>
+            <input type="text" id="kullanici_adi" name="kullanici_adi" required>
+        </div>
+        <div>
+            <label for="eposta">E-posta:</label>
+            <input type="email" id="eposta" name="eposta" required>
+        </div>
+        <div>
+            <label for="sifre">Şifre:</label>
+            <input type="password" id="sifre" name="sifre" required>
+        </div>
+        <div>
+            <label for="sifre_tekrar">Şifre Tekrar:</label>
+            <input type="password" id="sifre_tekrar" name="sifre_tekrar" required>
+        </div>
+        <button type="submit">Kayıt Ol</button>
+        <p>Zaten bir hesabınız var mı? <a href="giris.php">Giriş Yap</a></p>
+    </form>
+</body>
+</html>
+giriş
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kullanıcı Girişi</title>
+</head>
+<body>
+    <h1>Kullanıcı Girişi</h1>
+    <form method="POST" action="giris_isle.php">
+        <div>
+            <label for="kullanici_adi">Kullanıcı Adı veya E-posta:</label>
+            <input type="text" id="kullanici_adi" name="kullanici_adi" required>
+        </div>
+        <div>
+            <label for="sifre">Şifre:</label>
+            <input type="password" id="sifre" name="sifre" required>
+        </div>
+        <button type="submit">Giriş Yap</button>
+        <p>Henüz bir hesabınız yok mu? <a href="kayit.php">Kayıt Ol</a></p>
+    </form>
+</body>
+</html>
+kayıt işleme
+<?php
+require_once 'veritabani.php'; // Veritabanı bağlantısını dahil et
+
+// Veritabanı bağlantı bilgilerinin doğru olup olmadığını KONTROL EDİN!
+$host = 'localhost';
+$port = 5433;
+$dbname = 'yemek_tarifi';
+$username = 'postgres'; // PostgreSQL kullanıcı adınız
+$password = 'SİZİN_POSTGRESQL_ŞİFRENİZ'; // ********** BURAYI DOĞRU ŞİFRENİZLE DEĞİŞTİRİN! **********
+
+try {
+    $db = new PDO("pgsql:host=$host;dbname=$dbname", $username, $password);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Bağlantı başarılı olursa bu satır çalışır (geliştirme için eklendi)
+    // echo "Veritabanına başarıyla bağlanıldı (kayit_isle.php).\n";
+} catch (PDOException $e) {
+    die("Veritabanı bağlantısı başarısız (kayit_isle.php): " . $e->getMessage());
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $kullanici_adi = trim($_POST['kullanici_adi']);
+    $eposta = trim($_POST['eposta']);
+    $sifre = $_POST['sifre'];
+    $sifre_tekrar = $_POST['sifre_tekrar'];
+
+    // Hata mesajlarını saklamak için bir dizi
+    $hatalar = [];
+
+    // Kullanıcı adı boş mu?
+    if (empty($kullanici_adi)) {
+        $hatalar[] = "Kullanıcı adı boş olamaz.";
+    }
+
+    // E-posta geçerli mi?
+    if (!filter_var($eposta, FILTER_VALIDATE_EMAIL)) {
+        $hatalar[] = "Geçersiz e-posta adresi.";
+    }
+
+    // Şifreler eşleşiyor mu?
+    if ($sifre !== $sifre_tekrar) {
+        $hatalar[] = "Şifreler eşleşmiyor.";
+    }
+
+    // Şifre yeterince uzun mu? (Örneğin en az 6 karakter)
+    if (strlen($sifre) < 6) {
+        $hatalar[] = "Şifre en az 6 karakter olmalıdır.";
+    }
+
+    // Aynı kullanıcı adı veya e-posta zaten kayıtlı mı?
+    $stmt = $db->prepare("SELECT id FROM kullanicilar WHERE kullanici_adi = :kullanici_adi OR eposta = :eposta");
+    $stmt->bindParam(':kullanici_adi', $kullanici_adi);
+    $stmt->bindParam(':eposta', $eposta);
+    $stmt->execute();
+    if ($stmt->rowCount() > 0) {
+        $hatalar[] = "Bu kullanıcı adı veya e-posta adresi zaten kayıtlı.";
+    }
+
+    // Hata yoksa kullanıcıyı kaydet
+    if (empty($hatalar)) {
+        // Şifreyi güvenli bir şekilde hashle
+        $hashli_sifre = password_hash($sifre, PASSWORD_DEFAULT);
+
+        $stmt = $db->prepare("INSERT INTO kullanicilar (kullanici_adi, eposta, sifre) VALUES (:kullanici_adi, :eposta, :sifre)");
+        $stmt->bindParam(':kullanici_adi', $kullanici_adi);
+        $stmt->bindParam(':eposta', $eposta);
+        $stmt->bindParam(':sifre', $hashli_sifre);
+
+        if ($stmt->execute()) {
+            echo "Kayıt başarıyla tamamlandı. <a href='giris.php'>Giriş Yap</a>";
+            // İsteğe bağlı olarak kullanıcıyı giriş sayfasına yönlendirebilirsiniz:
+            // header("Location: giris.php");
+            exit();
+        } else {
+            $hatalar[] = "Kayıt sırasında bir hata oluştu.";
+        }
+    }
+
+    // Hataları göster
+    if (!empty($hatalar)) {
+        echo "Kayıt sırasında aşağıdaki hatalar oluştu:<br>";
+        foreach ($hatalar as $hata) {
+            echo "- " . $hata . "<br>";
+        }
+        echo "<a href='kayit.php'>Geri Dön</a>";
+    }
+} else {
+    // Sayfaya doğrudan erişildiyse kayıt formunu göster
+    header("Location: kayit.php");
+    exit();
+}
+?>
+anasayfa
+<?php
+session_start();
+
+// Kullanıcı giriş yapmamışsa giriş sayfasına yönlendir
+if (!isset($_SESSION['kullanici_id'])) {
+    header("Location: giris.php");
+    exit();
+}
+
+$kullanici_adi = $_SESSION['kullanici_adi'];
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Anasayfa</title>
+</head>
+<body>
+    <h1>Hoş Geldiniz, <?php echo $kullanici_adi; ?>!</h1>
+    <p>En Popüler Tarifler:</p>
+    <p>Son Eklenen Tarifler:</p>
+    <p>Tarif Kategorileri:</p>
+    <p><a href="profil.php">Profilim</a></p>
+    <p><a href="cikis.php">Çıkış Yap</a></p>
+</body>
+</html>
+giriş işle
+<?php
+session_start();
+
+// Veritabanı bağlantı bilgileri (AYNI OLMALI!)
+$host = 'localhost';
+$port = 5433;
+$dbname = 'yemek_tarifi';
+$username = 'postgres'; // PostgreSQL kullanıcı adınız
+$password = 'SİZİN_POSTGRESQL_ŞİFRENİZ'; // ********** BURAYI DOĞRU ŞİFRENİZLE DEĞİŞTİRİN! **********
+
+try {
+    $db = new PDO("pgsql:host=$host;dbname=$dbname", $username, $password);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Bağlantı başarılı olursa bu satır çalışır (geliştirme için eklendi)
+    // echo "Veritabanına başarıyla bağlanıldı (giris_isle.php).\n";
+} catch (PDOException $e) {
+    die("Veritabanı bağlantısı başarısız (giris_isle.php): " . $e->getMessage());
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $kullanici_adi_eposta = trim($_POST['kullanici_adi']);
+    $sifre = $_POST['sifre'];
+
+    $hatalar = [];
+
+    if (empty($kullanici_adi_eposta) || empty($sifre)) {
+        $hatalar[] = "Kullanıcı adı/e-posta ve şifre boş olamaz.";
+    }
+
+    if (empty($hatalar)) {
+        // Kullanıcıyı kullanıcı adı veya e-posta ile bul
+        $stmt = $db->prepare("SELECT id, kullanici_adi, sifre FROM kullanicilar WHERE kullanici_adi = :kullanici_adi OR eposta = :eposta");
+        $stmt->bindParam(':kullanici_adi', $kullanici_adi_eposta);
+        $stmt->bindParam(':eposta', $kullanici_adi_eposta);
+        $stmt->execute();
+        $kullanici = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($kullanici) {
+            // Şifreyi doğrula
+            if (password_verify($sifre, $kullanici['sifre'])) {
+                // Oturum başlat
+                $_SESSION['kullanici_id'] = $kullanici['id'];
+                $_SESSION['kullanici_adi'] = $kullanici['kullanici_adi'];
+                // Kullanıcıyı anasayfaya yönlendir
+                header("Location: anasayfa.php"); // Anasayfa henüz yoksa başka bir sayfaya yönlendirebilirsiniz
+                exit();
+            } else {
+                $hatalar[] = "Yanlış şifre.";
+            }
+        } else {
+            $hatalar[] = "Kullanıcı bulunamadı.";
+        }
+    }
+
+    if (!empty($hatalar)) {
+        echo "Giriş sırasında aşağıdaki hatalar oluştu:<br>";
+        foreach ($hatalar as $hata) {
+            echo "- " . $hata . "<br>";
+        }
+        echo "<a href='giris.php'>Geri Dön</a>";
+    }
+} else {
+    // Sayfaya doğrudan erişildiyse giriş formunu göster
+    header("Location: giris.php");
+    exit();
+}
+?>
+
+veritabanı
+
+<?php
+echo "veritabani.php dosyası çalışıyor...\n";
+$host = 'localhost';
+$port = 5433;
+$dbname = 'yemek_tarifi';
+$username = 'postgres';
+$password = 'sizin_postgres_sifreniz';
+
+try {
+    $db = new PDO("pgsql:host=$host;dbname=$dbname", $username, $password);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    echo "Veritabanina basariyla baglanildi.\n";
+} catch (PDOException $e) {
+    die("Veritabani baglantisi basarisiz: " . $e->getMessage());
+}
+?>
+
+
+
+
+
